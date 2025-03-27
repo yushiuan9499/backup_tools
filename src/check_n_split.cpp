@@ -13,34 +13,56 @@ const int SZ_100MB = 100 * 1024 * 1024;
 
 void check_n_split(char filename[]) {
   FILE *file = fopen(filename, "r");
+  char remove_slash_name[MAX_FILE_NAME] = {0};
+  for (size_t i = 0; i < strlen(filename); i++) {
+    if (filename[i] == '/') {
+      remove_slash_name[i] = '.';
+    } else {
+      remove_slash_name[i] = filename[i];
+    }
+  }
   for (int i = 0; 1; i++) {
     char chunk_name[MAX_FILE_NAME] = {0};
-    bool diff = false;
-    sprintf(chunk_name, "__split_file__/%s.%09d", filename, i);
+    bool diff = false, end = false;
+    sprintf(chunk_name, "__split_files__/%s.%09d", remove_slash_name, i);
     FILE *chunk = fopen(chunk_name, "r");
     if (chunk == NULL) {
       // File not exist
       // Create new file
       diff = true;
+      fseek(file, i * SZ_100MB, SEEK_SET);
+      unsigned char buffer[1];
+      if (fread(buffer, 1, 1, file) == 0) {
+        break;
+      }
     } else {
       // File exist
       // Check the content
       fseek(file, i * SZ_100MB, SEEK_SET);
-      while (1) {
+      for (int j = 0; j < SZ_100MB; j += 8) {
         unsigned char buffer1[8], buffer2[8];
         unsigned long *p1 = (unsigned long *)buffer1;
         unsigned long *p2 = (unsigned long *)buffer2;
         size_t read1 = fread(buffer1, 1, 8, file);
         size_t read2 = fread(buffer2, 1, 8, chunk);
+
+        if (read1 == 0) {
+          if (read2 != read1) {
+            diff = true;
+          }
+          end = true;
+          break;
+        }
         if (read1 != read2 || *p1 != *p2) {
           diff = true;
-          break;
-        } else if (read1 == 0) {
           break;
         }
       }
     }
-    fclose(chunk);
+    if (chunk != NULL) {
+      fclose(chunk);
+      chunk = NULL;
+    }
     if (diff) {
       // File is different
       // Create new file
@@ -56,12 +78,21 @@ void check_n_split(char filename[]) {
         if (read == 0) {
           break;
         }
-        fwrite(buffer, 1, 8, chunk);
+        fwrite(buffer, 1, read, chunk);
       }
-      fclose(chunk);
+      if (chunk != NULL) {
+        fclose(chunk);
+        chunk = NULL;
+      }
+    }
+    if (end) {
+      break;
     }
   }
-  fclose(file);
+  if (file != NULL) {
+    fclose(file);
+    file = NULL;
+  }
   return;
 }
 
@@ -73,11 +104,12 @@ int main() {
   ifstream ignore_file(".gitignore");
   string ignore_file_name;
   while (getline(ignore_file, ignore_file_name)) {
+    cout << "Checking and spliting " << ignore_file_name << endl;
     if (ignore_file_name.size() > MAX_FILE_NAME) {
       printf("File name is too long\n");
       return -1;
     }
-    check_n_split((char *)ignore_file_name.c_str());
+    check_n_split((char *)ignore_file_name.c_str() + 2);
   }
   return 0;
 }
