@@ -109,7 +109,8 @@ int main() {
       printf("File name is too long\n");
       return -1;
     }
-    check_n_split((char *)ignore_file_name.c_str() + 2);
+    check_n_split((char *)ignore_file_name.c_str());
   }
+  ignore_file.close();
   return 0;
 }

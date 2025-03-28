@@ -35,7 +35,7 @@ def main():
             for file in files:
                 sz = os.path.getsize(os.path.join(folder, file))
                 if sz > 1024 * 1024 * 100:
-                    f.write(f"{os.path.join(folder, file)}\n")
+                    f.write(f"{os.path.join(folder, file)[2:]}\n")
                 elif file in old_ignore:
                     os.system(f"rm -f {os.path.join(folder, '__split__files__', file)}.*")
     os.system("check_n_split")
