@@ -1,19 +1,42 @@
 #!/bin/python3
+# A simple script to backup files to a git repository
+# Usage: backup.py <backup_dir> [--no-push]
 import os
 import sys
 import time
 
+class Args:
+    def __init__(self):
+        self.backup_dir:str = None
+        self.no_push:bool = False
+
+def read_args():
+    if len(sys.argv) < 2 or len(sys.argv) > 3:
+        print("Usage: backup.py <backup_dir> [--no-push]")
+        return None
+    args = Args()
+    for arg in sys.argv[1:]:
+        if arg == "--no-push":
+            args.no_push = True
+        else:
+            if args.backup_dir:
+                print("Backup directory already specified")
+                return None
+            args.backup_dir = arg
+    if not args.backup_dir:
+        print("Backup directory not specified")
+        return None
+    return args
 
 def main():
     exclude = [".git", "__split_files__"]
-    if len(sys.argv) != 2:
-        print("Usage: backup.py <backup_dir>")
+    args = read_args()
+    if not args:
         return 1
-    backup_dir = sys.argv[1]
-    if not os.path.exists(backup_dir):
+    if not os.path.exists(args.backup_dir):
         print("Backup directory does not exist")
         return 1
-    os.chdir(backup_dir)
+    os.chdir(args.backup_dir)
     if not os.path.exists(".git"):
         os.system("git init")
         os.mkdir("__split_files__")
@@ -41,7 +64,8 @@ def main():
     os.system("check_n_split")
     os.system("git add .")
     os.system(f"git commit -m '{time.ctime()}'")
-    os.system("git push -u origin master")
+    if not args.no_push:
+        os.system("git push -u origin master")
     return 0
 
 if __name__ == "__main__":
