@@ -50,7 +50,16 @@ def main():
             if not file:
                 break
             old_ignore.add(file)
-            print(file)
+            if not os.path.exists(file):
+                os.system(f"rm -f {os.path.join('__split_files__', file)}.*")
+            else:
+                sz = os.stat(file).st_size
+                i = sz // (1024 * 1024 * 100) + 1
+                while True:
+                    if not os.path.exists(f"{os.path.join('__split_files__', file)}.%09d" % i):
+                        break
+                    os.system(f"rm -f {os.path.join('__split_files__', file)}.%09d" % i)
+
     with open(".gitignore", "w") as f:
         for folder, subfolders, files in os.walk(".",topdown=True):
             if folder == ".":
@@ -59,8 +68,6 @@ def main():
                 sz = os.path.getsize(os.path.join(folder, file))
                 if sz > 1024 * 1024 * 100:
                     f.write(f"{os.path.join(folder, file)[2:]}\n")
-                elif file in old_ignore:
-                    os.system(f"rm -f {os.path.join(folder, '__split__files__', file)}.*")
     os.system("check_n_split")
     os.system("git add .")
     os.system(f"git commit -m '{time.ctime()}'")

@@ -1,6 +1,7 @@
 // This program is use to check the file is change or not
 // If the file is change, it will split the change chunk of file
 #include <fstream>
+#include <git2.h>
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
@@ -41,8 +42,8 @@ void check_n_split(char filename[]) {
       fseek(file, i * SZ_100MB, SEEK_SET);
       for (int j = 0; j < SZ_100MB; j += 8) {
         unsigned char buffer1[8], buffer2[8];
-        unsigned long *p1 = (unsigned long *)buffer1;
-        unsigned long *p2 = (unsigned long *)buffer2;
+        uint64_t *p1 = (uint64_t *)buffer1;
+        uint64_t *p2 = (uint64_t *)buffer2;
         size_t read1 = fread(buffer1, 1, 8, file);
         size_t read2 = fread(buffer2, 1, 8, chunk);
 
@@ -97,9 +98,21 @@ void check_n_split(char filename[]) {
 }
 
 int main() {
-  if (sizeof(unsigned long) != 8) {
-    printf("this program assumes unsigned long is 8 bytes\n");
+  // Initialize git data
+  git_libgit2_init();
+  git_repository *repo = nullptr;
+  if (git_repository_open(&repo, ".")) {
+    printf("Cannot open repository\n");
     return -1;
+  }
+  git_oid head_oid;
+  git_reference_name_to_id(&head_oid, repo, "HEAD");
+  git_commit *head_commit = nullptr;
+  git_time_t commit_time = 0; // default time for never commit
+  if (git_commit_lookup(&head_commit, repo, &head_oid)) {
+    printf("Cannot lookup commit\n");
+  } else {
+    commit_time = git_commit_time(head_commit);
   }
   ifstream ignore_file(".gitignore");
   string ignore_file_name;
@@ -109,8 +122,18 @@ int main() {
       printf("File name is too long\n");
       return -1;
     }
-    check_n_split((char *)ignore_file_name.c_str());
+    struct stat file_stat;
+    if (stat(ignore_file_name.c_str(), &file_stat) == -1) {
+      printf("File not exist\n");
+      return -1;
+    }
+    if (file_stat.st_mtim.tv_sec > commit_time) {
+      // when the file is change
+      check_n_split((char *)ignore_file_name.c_str());
+    }
   }
   ignore_file.close();
+  git_commit_free(head_commit);
+  git_repository_free(repo);
   return 0;
 }
